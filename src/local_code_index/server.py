@@ -171,9 +171,15 @@ def search_codebase(
     query: str, 
     file_filter: Optional[str] = None, 
     limit: int = 15, 
-    token_budget: int = 4000
+    token_budget: int = 4000,
+    verbose: bool = True
 ) -> str:
-    """Semantically queries code blocks from an isolated indexed codebase path with a token ceiling safeguard."""
+    """Semantically queries code blocks from an isolated indexed codebase path with a token ceiling safeguard.
+
+    When ``verbose`` is False, each result emits a compact location line plus a
+    short preview (~80 chars) instead of the full source block, so the output
+    stays scannable for quick lookup.
+    """
     target_table = get_clean_table_name(os.path.abspath(repo_path))
     
     if target_table not in db.table_names():
@@ -195,10 +201,18 @@ def search_codebase(
     truncated = False
     
     for idx, res in enumerate(results):
-        block_text = (
-            f"\n[{idx+1}] File: {res['file_path']} (Line {res['start_line']}) | Type: {res['type']}\n"
-            f"Code:\n{res['text']}\n" + "-"*40
-        )
+        if verbose:
+            block_text = (
+                f"\n[{idx+1}] File: {res['file_path']} (Line {res['start_line']}) | Type: {res['type']}\n"
+                f"Code:\n{res['text']}\n" + "-"*40
+            )
+        else:
+            preview = res['text'].replace("\n", " ").strip()
+            if len(preview) > 80:
+                preview = preview[:77] + "..."
+            block_text = (
+                f"\n[{idx+1}] File: {res['file_path']} (Line {res['start_line']}) | Type: {res['type']} | Preview: {preview}"
+            )
         block_tokens = count_tokens(block_text)
         
         # Enforce Token Safeguard Guardrails
@@ -258,9 +272,15 @@ def delete_repository(repo_path_or_table: str) -> str:
 def search_all_codebases(
     query: str, 
     limit_per_repo: int = 3, 
-    token_budget: int = 6000
+    token_budget: int = 6000,
+    verbose: bool = True
 ) -> str:
-    """Executes a high-speed cross-query across all indexed tables simultaneously with a global token limit."""
+    """Executes a high-speed cross-query across all indexed tables simultaneously with a global token limit.
+
+    When ``verbose`` is False, each result emits a compact location line plus a
+    short preview (~80 chars) instead of the full source block, so the output
+    stays scannable for quick lookup.
+    """
     # Get all active physical table names currently inside your LanceDB directory
     all_table_names = db.table_names()
     
@@ -302,10 +322,18 @@ def search_all_codebases(
     
     for idx, res in enumerate(combined_results):
         dist = res.get('_distance', 0.0)
-        block_text = (
-            f"\n[{idx+1}] [Repo: {res['_repo_name']}] | File: {res['file_path']} (Line {res['start_line']}) [Distance: {dist:.4f}]\n"
-            f"Code:\n{res['text']}\n" + "-"*40
-        )
+        if verbose:
+            block_text = (
+                f"\n[{idx+1}] [Repo: {res['_repo_name']}] | File: {res['file_path']} (Line {res['start_line']}) [Distance: {dist:.4f}]\n"
+                f"Code:\n{res['text']}\n" + "-"*40
+            )
+        else:
+            preview = res['text'].replace("\n", " ").strip()
+            if len(preview) > 80:
+                preview = preview[:77] + "..."
+            block_text = (
+                f"\n[{idx+1}] [Repo: {res['_repo_name']}] | File: {res['file_path']} (Line {res['start_line']}) [Dist: {dist:.4f}] | Preview: {preview}"
+            )
         block_tokens = count_tokens(block_text)
         
         # Enforce Token Safeguard Guardrails

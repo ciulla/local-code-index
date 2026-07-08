@@ -123,10 +123,17 @@ Add this configuration snippet inside your `mcpServers` settings payload:
 
 Indexing and maintenance are driven by a single built-in CLI command (`local-code-index`) that ships with the package — **no `~/.bashrc` or `~/.zshrc` editing required**, and it works the same on Windows PowerShell, macOS and Linux.
 
+A shorter alias **`lci`** is also installed and points at the exact same CLI, so the two invocations below are interchangeable:
+
+```bash
+uv run local-code-index idx .   # full name
+uv run lci idx .                # short alias
+```
+
 > The CLI entry point is registered automatically via `[project.scripts]` in `pyproject.toml` during the `uv pip install -e .` step from the Quick Start. Run it through `uv` so the project's virtualenv is used:
 
 ```bash
-uv run local-code-index --help
+uv run lci --help
 ```
 
 ### Available Commands
@@ -143,10 +150,25 @@ Each command accepts `--help` for full flag details (token budgets, limit-per-re
 
 ```bash
 uv run local-code-index find --help
-# Usage: local-code-index find [-h] [--limit-per-repo N] [--token-budget N] query ...
+# Usage: local-code-index find [-h] [--limit-per-repo N] [--token-budget N] [-v] query ...
 ```
 
-> **Tip:** If you prefer shorter invocations than `uv run ...`, you can either (a) drop the `uv run` prefix and call `local-code-index ...` directly after activating the project virtualenv, or (b) create an alias of your own (`alias idx="uv --directory /path/to/local-code-index run local-code-index"`). The CLI itself needs no special shell setup.
+### Concise vs. Verbose Output (`-v` / `--verbose`)
+
+By default, `find` and `search` print a **concise** response — one line per hit showing `[repo] file (line) type distance | Preview: <first 80 chars>` — so you can quickly locate where something lives without scrolling through full source blocks.
+
+Pass `-v` (or `--verbose`) to switch to the **verbose** response, which prints the complete source block for each hit (the original behavior):
+
+```bash
+# concise (default): one scannable line per match
+uv run local-code-index find "JwtAuthGuard validation logic"
+
+# verbose: include the full code block for every match
+uv run local-code-index find -v "JwtAuthGuard validation logic"
+uv run local-code-index search . "webhook signature" --verbose
+```
+
+> **Tip:** If you prefer even shorter invocations, you can either (a) use the built-in `lci` alias (`uv run lci idx .`), (b) drop `uv run` entirely and call `lci ...` directly after activating the project virtualenv, or (c) create an alias of your own (`alias idx="uv --directory /path/to/local-code-index run lci"`). The CLI itself needs no special shell setup.
 
 ---
 

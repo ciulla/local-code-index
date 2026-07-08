@@ -5,6 +5,10 @@ single, cross-platform executable installed alongside the package:
 
     uv run local-code-index <command> [args]
 
+A shorter alias `lci` is also installed and points at the same CLI, e.g.:
+
+    uv run lci idx .
+
 Available commands:
     idx     [path]   Index a repository folder (defaults to current directory)
     rm      [path]   Remove a repository from the index (defaults to cwd)
@@ -52,11 +56,13 @@ def _cmd_find(args: argparse.Namespace) -> int:
         print("Error: a search query is required. Usage: local-code-index find <query>")
         return 2
     query = " ".join(args.query)
-    print(f"\nSearching ALL indexed codebases for: {query!r}\n")
+    mode = "verbose" if args.verbose else "concise"
+    print(f"\nSearching ALL indexed codebases for: {query!r} ({mode})\n")
     result = server.search_all_codebases(
         query,
         limit_per_repo=args.limit_per_repo,
         token_budget=args.token_budget,
+        verbose=args.verbose,
     )
     print(result)
     return 0
@@ -68,13 +74,15 @@ def _cmd_search(args: argparse.Namespace) -> int:
         return 2
     abs_path = _resolve_path(args.path)
     query = " ".join(args.query)
-    print(f"\nSearching codebase '{os.path.basename(abs_path)}' for: {query!r}\n")
+    mode = "verbose" if args.verbose else "concise"
+    print(f"\nSearching codebase '{os.path.basename(abs_path)}' for: {query!r} ({mode})\n")
     result = server.search_codebase(
         abs_path,
         query,
         file_filter=args.file_filter,
         limit=args.limit,
         token_budget=args.token_budget,
+        verbose=args.verbose,
     )
     print(result)
     return 0
@@ -115,7 +123,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="Max hits per repository (default: 3)")
     p_find.add_argument("--token-budget", type=int, default=6000, dest="token_budget",
                         help="Global token cap on returned results (default: 6000)")
-    p_find.set_defaults(func=_cmd_find)
+    p_find.add_argument("-v", "--verbose", action="store_true",
+                        help="Show full source block for each hit (default: concise location line + preview)")
+    p_find.set_defaults(func=_cmd_find, verbose=False)
 
     p_search = subparsers.add_parser(
         "search", help="Semantic search within ONE indexed repository."
@@ -127,7 +137,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_search.add_argument("--limit", type=int, default=15, help="Max hits (default: 15)")
     p_search.add_argument("--token-budget", type=int, default=4000, dest="token_budget",
                           help="Token cap on returned results (default: 4000)")
-    p_search.set_defaults(func=_cmd_search)
+    p_search.add_argument("-v", "--verbose", action="store_true",
+                          help="Show full source block for each hit (default: concise location line + preview)")
+    p_search.set_defaults(func=_cmd_search, verbose=False)
 
     p_list = subparsers.add_parser(
         "list", help="List all currently indexed repositories."

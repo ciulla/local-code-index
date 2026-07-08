@@ -17,6 +17,7 @@ requires-python = ">=3.10"
 
 [project.scripts]
 local-code-index = "local_code_index.cli:main"
+lci = "local_code_index.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
