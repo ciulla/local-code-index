@@ -1,0 +1,41 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# --- Packaging / builds ---
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# --- Coverage / test artifacts ---
+.coverage
+.coverage.*
+htmlcov/
+*,cover
+.pytest_cache/
+.nyc_output/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Tooling caches ---
+.mypy_cache/
+.ruff_cache/
+.tox/
+
+# --- IDE / editor cruft ---
+.idea/
+*.swp
+*.swo
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+desktop.ini
