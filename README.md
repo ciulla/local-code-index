@@ -86,11 +86,11 @@ uv pip install -e .
 
 ### 3. Register the VS Code / Editor Extension
 
-To connect this local tool to your AI chat interface, register it inside your favorite editor extension configurations.
+To connect this local tool to your AI chat interface, register it inside your favorite editor extension configurations. The MCP server advertises itself as **`Multi-Repo Indexer`** (set via `FastMCP("Multi-Repo Indexer")` in `server.py`); we recommend using the same name for the config key so the display is consistent across panels.
 
 #### For Cursor (`Cursor Settings -> Features -> MCP`)
 
-- **Name**: `local-multi-repo-indexer`
+- **Name**: `Multi-Repo Indexer`
 - **Type**: `command`
 - **Command**: `uv --directory "/absolute/path/to/local-code-index" run python -m local_code_index.server`
 
@@ -101,7 +101,7 @@ Add this configuration snippet inside your `mcpServers` settings payload:
 ```json
 {
   "mcpServers": {
-    "local-multi-repo-indexer": {
+    "Multi-Repo Indexer": {
       "command": "uv",
       "args": [
         "--directory",

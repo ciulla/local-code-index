@@ -8,7 +8,7 @@ import tiktoken
 
 from .parser_utils import get_structural_chunks, fallback_line_chunker
 
-mcp = FastMCP("scalable-code-vector")
+mcp = FastMCP("Multi-Repo Indexer")
 
 # Vector Database Path Setup
 DB_DIR = os.path.expanduser("~/.local_multi_repo_mcp_db")
