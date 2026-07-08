@@ -89,8 +89,11 @@ def index_repository(repo_path: str) -> str:
     ignore_dirs = {
         '.git', '.github', 'node_modules', '__pycache__', 'venv', '.venv', 'env', 
         'dist', 'build', '.idea', '.vscode', 'out', 'target', 'bin', 'obj',
-        'coverage', '.nyc_output', 'public', 'vendor', 'pods', '.poetry', '.pytest_cache'
+        'coverage', '.nyc_output', 'public', 'vendor', 'pods', '.poetry', '.pytest_cache',
+        '.mypy_cache', '.ruff_cache', '.tox', '.eggs', '.cache', 'site-packages'
     }
+    # Suffix-based directory exclusions (e.g. '*.egg-info', '.*.egg-info')
+    ignore_dir_suffixes = ('.egg-info',)
     ignore_files = {
         'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'cargo.lock', 'go.sum',
         'poetry.lock', 'poetry.toml', 'pipfile', 'pipfile.lock', '.env', 'tsconfig.json'
@@ -100,7 +103,12 @@ def index_repository(repo_path: str) -> str:
     print(f"\n[DEBUG] Starting walk on: {abs_path}")
     
     for root, dirs, files in os.walk(abs_path):
-        dirs[:] = [d for d in dirs if d not in ignore_dirs and not d.startswith('.')]
+        dirs[:] = [
+            d for d in dirs
+            if d not in ignore_dirs
+            and not d.startswith('.')
+            and not d.endswith(ignore_dir_suffixes)
+        ]
         print(f"[DEBUG] Scanning directory: {root}")
         
         for file in files:

@@ -53,13 +53,14 @@ Ensure your local project directory matches this setup:
 
 ```text
 local-code-index/
-├── pyproject.toml     # Pin-point environment and tool configurations
+├── pyproject.toml             # Pin-point environment and tool configurations
 ├── src/
 │   └── local_code_index/
 │       ├── __init__.py
+│       ├── cli.py             # Cross-platform CLI (uv run local-code-index ...)
 │       ├── parser_utils.py    # Official Tree-sitter AST parsing layer
 │       └── server.py          # FastMCP server tool and LanceDB engine
-└── README.md          # Project documentation
+└── README.md                  # Project documentation
 ```
 
 ---
@@ -118,34 +119,34 @@ Add this configuration snippet inside your `mcpServers` settings payload:
 
 ---
 
-## 💻 Integrated VS Code Terminal Shortcuts
+## 💻 Managing the Index from the Integrated Terminal
 
-To manage and index codebases directly from your editor's built-in terminal, paste these quick-actions into your shell profile config (`~/.zshrc` or `~/.bashrc`):
+Indexing and maintenance are driven by a single built-in CLI command (`local-code-index`) that ships with the package — **no `~/.bashrc` or `~/.zshrc` editing required**, and it works the same on Windows PowerShell, macOS and Linux.
+
+> The CLI entry point is registered automatically via `[project.scripts]` in `pyproject.toml` during the `uv pip install -e .` step from the Quick Start. Run it through `uv` so the project's virtualenv is used:
 
 ```bash
-# Index your current terminal repository folder path
-idx() {
-    TARGET_DIR="\${1:-.}"
-    ABS_PATH=(cd "TARGET_DIR" && pwd)
-    echo "⚡ Indexing codebase to local vector DB: \$ABS_PATH"
-    uv --directory "/absolute/path/to/local-code-index" run python -c "from local_code_index import server; print(server.index_repository('\$ABS_PATH'))"
-}
-
-# Remove an old or deleted repository from the vector index
-idx-rm() {
-    TARGET_DIR="\${1:-.}"
-    ABS_PATH=(cd "TARGET_DIR" && pwd)
-    echo "🗑️ Removing vector entries for: \$ABS_PATH"
-    uv --directory "/absolute/path/to/local-code-index" run python -c "from local_code_index import server; print(server.delete_repository('\$ABS_PATH'))"
-}
-
-# Query across all repositories globally
-idx-find() {
-    uv --directory "/absolute/path/to/local-code-index" run python -c "from local_code_index import server; print(server.search_all_codebases('\$1'))"
-}
+uv run local-code-index --help
 ```
 
-_Run `source ~/.zshrc` or `source ~/.bashrc` to update your active shell context._
+### Available Commands
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `idx [path]` | Index a repository folder (defaults to current directory) | `uv run local-code-index idx .` |
+| `rm [path]` | Remove a repository from the index | `uv run local-code-index rm ~/dev/my-api` |
+| `list` | List all currently indexed repositories | `uv run local-code-index list` |
+| `find <query>` | Semantic search across **all** indexed codebases | `uv run local-code-index find "JwtAuthGuard validation logic"` |
+| `search [path] <query>` | Semantic search within **one** indexed repository | `uv run local-code-index search . "webhook signature"` |
+
+Each command accepts `--help` for full flag details (token budgets, limit-per-repo, file filters, etc.), for example:
+
+```bash
+uv run local-code-index find --help
+# Usage: local-code-index find [-h] [--limit-per-repo N] [--token-budget N] query ...
+```
+
+> **Tip:** If you prefer shorter invocations than `uv run ...`, you can either (a) drop the `uv run` prefix and call `local-code-index ...` directly after activating the project virtualenv, or (b) create an alias of your own (`alias idx="uv --directory /path/to/local-code-index run local-code-index"`). The CLI itself needs no special shell setup.
 
 ---
 
@@ -153,18 +154,18 @@ _Run `source ~/.zshrc` or `source ~/.bashrc` to update your active shell context
 
 ### Workflow 1: From the Integrated Terminal
 
-Simply step into any repository folder on your system and type `idx`:
+Simply step into any repository folder on your system and index it with a single command — no shell profile edits needed:
 
 ```bash
 cd ~/dev/projects/my-nest-api
-idx
+uv run local-code-index idx .
 # Output: Success: Codebase 'my-nest-api' indexed completely (420 nodes with basic vector direct lookup).
 ```
 
 If you want to run a quick query across everything you've saved:
 
 ```bash
-idx-find "JwtAuthGuard validation logic"
+uv run local-code-index find "JwtAuthGuard validation logic"
 ```
 
 ---
@@ -197,7 +198,7 @@ Once the server status bar is green inside your editor panel, the underlying LLM
 
 To safeguard memory, protect confidential keys, and maximize performance, files that match the following attributes are omitted from processing:
 
-1. **Directories Skipped**: `.git`, `.github`, `node_modules`, `dist`, `build`, `.vscode`, `target`, `bin`, `vendor`.
+1. **Directories Skipped**: `.git`, `.github`, `node_modules`, `dist`, `build`, `.vscode`, `target`, `bin`, `vendor`, `__pycache__`, virtualenvs (`venv`/`.venv`/`env`), cache dirs (`.mypy_cache`, `.ruff_cache`, `.pytest_cache`, `.tox`, `.eggs`, `.cache`), `site-packages`, and any `*.egg-info` directory.
 2. **Extensions Tracked**: `.js`, `.jsx`, `.ts`, `.tsx`, `.java`.
 3. **Blacklisted Configuration Profiles**: `package-lock.json`, `.env`, `.env.local`, `tsconfig.json`.
 4. **Size Caps**: Any source code file larger than **2MB** is automatically skipped to prevent execution bottlenecks.
@@ -212,4 +213,3 @@ To safeguard memory, protect confidential keys, and maximize performance, files 
 
 ---
 
-Your multi-repo local indexer is now complete, optimized, and fully protected against token overflow issues. If you would like to proceed, let me know if you need help **setting up a daily automated task** to automatically refresh modified code definitions across your workspace.
