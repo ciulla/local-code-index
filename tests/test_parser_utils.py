@@ -24,7 +24,7 @@ import os
 import unittest
 from unittest.mock import patch, MagicMock
 
-from parser_utils import (
+from local_code_index.parser_utils import (
     get_language_parser,
     is_valid_test_call,
     get_structural_chunks,
@@ -199,7 +199,7 @@ class TestIsValidTestCall(unittest.TestCase):
             start_byte = 0
             end_byte = 10
 
-        with patch("parser_utils.bytes", side_effect=RuntimeError("boom")):
+        with patch("local_code_index.parser_utils.bytes", side_effect=RuntimeError("boom")):
             result = is_valid_test_call(_ExplodingNode(), "describe(")
         self.assertFalse(result)
 
@@ -415,7 +415,7 @@ class TestGetStructuralChunksEdges(unittest.TestCase):
         self.assertEqual(get_structural_chunks("/work/empty.py", ""), [])
 
     def test_parser_failure_returns_empty(self):
-        with patch("parser_utils.get_language_parser", return_value=None):
+        with patch("local_code_index.parser_utils.get_language_parser", return_value=None):
             self.assertEqual(
                 get_structural_chunks("/work/x.py", "def f(): pass"), []
             )
@@ -423,7 +423,7 @@ class TestGetStructuralChunksEdges(unittest.TestCase):
     def test_parse_exception_swallowed(self):
         fake_parser = MagicMock()
         fake_parser.parse.side_effect = RuntimeError("boom")
-        with patch("parser_utils.get_language_parser", return_value=fake_parser):
+        with patch("local_code_index.parser_utils.get_language_parser", return_value=fake_parser):
             self.assertEqual(
                 get_structural_chunks("/work/x.py", "def f(): pass"), []
             )

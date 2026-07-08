@@ -30,8 +30,8 @@ import os
 import unittest
 from unittest.mock import patch, MagicMock, mock_open
 
-import server
-from server import (
+from local_code_index import server
+from local_code_index.server import (
     count_tokens,
     get_embedding,
     get_clean_table_name,
@@ -51,7 +51,7 @@ server.mcp = MagicMock()
 class _ServerDBFixture(unittest.TestCase):
     """Save/restore the global ``server.db`` mock so tests cannot leak state.
 
-    Each test patches ``server.db`` via ``@patch('server.db')``; this base class
+    Each test patches ``server.db`` via ``@patch('local_code_index.server.db')``; this base class
     ensures the original (live lancedb connection) is restored in tearDown even if
     a subclass forgets the explicit teardown.
     """
@@ -156,19 +156,19 @@ class TestGetEmbedding(unittest.TestCase):
     def tearDown(self):
         server.ollama = self._original_ollama
 
-    @patch('server.ollama.embeddings')
+    @patch('local_code_index.server.ollama.embeddings')
     def test_success(self, mock_embeddings):
         mock_embeddings.return_value = {"embedding": [0.1, 0.2, 0.3]}
         self.assertEqual(get_embedding("test text"), [0.1, 0.2, 0.3])
         mock_embeddings.assert_called_once_with(model="nomic-embed-text", prompt="test text")
 
-    @patch('server.ollama.embeddings')
+    @patch('local_code_index.server.ollama.embeddings')
     def test_empty_input(self, mock_embeddings):
         mock_embeddings.return_value = {"embedding": [0.0]}
         self.assertEqual(get_embedding(""), [0.0])
         mock_embeddings.assert_called_once_with(model="nomic-embed-text", prompt="")
 
-    @patch('server.ollama.embeddings')
+    @patch('local_code_index.server.ollama.embeddings')
     def test_connection_error_raises_runtime_error(self, mock_embeddings):
         mock_embeddings.side_effect = Exception("Connection refused")
         with self.assertRaises(RuntimeError) as ctx:
@@ -176,7 +176,7 @@ class TestGetEmbedding(unittest.TestCase):
         self.assertIn("Ollama connection error", str(ctx.exception))
         self.assertIn("Ensure 'ollama pull nomic-embed-text' was run", str(ctx.exception))
 
-    @patch('server.ollama.embeddings')
+    @patch('local_code_index.server.ollama.embeddings')
     def test_missing_embedding_key_raises_runtime_error(self, mock_embeddings):
         mock_embeddings.return_value = {"other": "value"}
         with self.assertRaises(RuntimeError):
@@ -228,8 +228,8 @@ class TestGetCleanTableName(unittest.TestCase):
 class TestUpdateManifest(_ServerDBFixture):
     """update_manifest adds/refreshes a manifest record."""
 
-    @patch('server.db')
-    @patch('server.os')
+    @patch('local_code_index.server.db')
+    @patch('local_code_index.server.os')
     def test_new_manifest_table_created_with_overwrite(self, mock_os, mock_db):
         mock_os.path.abspath.return_value = "/abs/repo"
         # basename must resolve to a plain string (mock would otherwise return a Mock).
@@ -251,8 +251,8 @@ class TestUpdateManifest(_ServerDBFixture):
         )
         mock_db.open_table.assert_not_called()
 
-    @patch('server.db')
-    @patch('server.os')
+    @patch('local_code_index.server.db')
+    @patch('local_code_index.server.os')
     def test_existing_manifest_table_replaces_entry(self, mock_os, mock_db):
         mock_os.path.abspath.return_value = "/abs/repo"
         mock_os.path.basename.return_value = "repo"
@@ -278,21 +278,21 @@ class TestUpdateManifest(_ServerDBFixture):
 class TestListIndexedRepositories(_ServerDBFixture):
     """list_indexed_repositories read path."""
 
-    @patch('server.db')
+    @patch('local_code_index.server.db')
     def test_no_tables_at_all(self, mock_db):
         mock_db.table_names.return_value = []
         self.assertEqual(
             list_indexed_repositories(), "No repositories have been indexed yet."
         )
 
-    @patch('server.db')
+    @patch('local_code_index.server.db')
     def test_no_manifest_only_repo_tables(self, mock_db):
         mock_db.table_names.return_value = ["repo_a_11111111", "repo_b_22222222"]
         self.assertEqual(
             list_indexed_repositories(), "No repositories have been indexed yet."
         )
 
-    @patch('server.db')
+    @patch('local_code_index.server.db')
     def test_manifest_present_but_empty(self, mock_db):
         mock_db.table_names.return_value = ["master_manifest", "repo_a_11111111"]
         mock_table = MagicMock()
@@ -303,7 +303,7 @@ class TestListIndexedRepositories(_ServerDBFixture):
             list_indexed_repositories(), "No repositories found in manifest tracker."
         )
 
-    @patch('server.db')
+    @patch('local_code_index.server.db')
     def test_manifest_with_data(self, mock_db):
         mock_db.table_names.return_value = ["master_manifest", "repo_a_11111111"]
         mock_table = MagicMock()
@@ -337,35 +337,35 @@ class TestIndexRepository(_ServerDBFixture):
         mock_walk.return_value = iter(walker)
 
     def test_nonexistent_path_returns_error(self):
-        with patch('server.os.path.exists', return_value=False), \
-             patch('server.os.path.abspath', return_value="/no/such/path"):
+        with patch('local_code_index.server.os.path.exists', return_value=False), \
+             patch('local_code_index.server.os.path.abspath', return_value="/no/such/path"):
             result = index_repository("/no/such/path")
         self.assertEqual(result, "Error: Path /no/such/path does not exist.")
 
-    @patch('server.get_structural_chunks')
-    @patch('server.get_embedding')
+    @patch('local_code_index.server.get_structural_chunks')
+    @patch('local_code_index.server.get_embedding')
     def test_no_supported_files_returns_message(self, mock_embed, mock_chunks):
-        with patch('server.os.path.exists', return_value=True), \
-             patch('server.os.path.abspath', return_value="/repo"), \
-             patch('server.os.path.normpath', side_effect=os.path.normpath), \
-             patch('server.os.walk', return_value=iter([("/repo", [], ["readme.md"])])):
-            with patch('server.update_manifest'):
+        with patch('local_code_index.server.os.path.exists', return_value=True), \
+             patch('local_code_index.server.os.path.abspath', return_value="/repo"), \
+             patch('local_code_index.server.os.path.normpath', side_effect=os.path.normpath), \
+             patch('local_code_index.server.os.walk', return_value=iter([("/repo", [], ["readme.md"])])):
+            with patch('local_code_index.server.update_manifest'):
                 result = index_repository("/repo")
         self.assertEqual(result, "No processable source files found.")
         mock_chunks.assert_not_called()
         mock_embed.assert_not_called()
 
-    @patch('server.get_structural_chunks')
-    @patch('server.get_embedding')
+    @patch('local_code_index.server.get_structural_chunks')
+    @patch('local_code_index.server.get_embedding')
     @patch('builtins.open', new_callable=mock_open, read_data="def f():\n    pass")
     def test_supported_file_happy_path_basic_index(
         self, mock_file, mock_embed, mock_chunks
     ):
-        with patch('server.os.path.exists', return_value=True), \
-             patch('server.os.path.abspath', return_value="/repo"), \
-             patch('server.os.path.normpath', side_effect=os.path.normpath), \
-             patch('server.os.path.getsize', return_value=100), \
-             patch('server.os.walk', return_value=iter([("/repo", [], ["module.py"])])):
+        with patch('local_code_index.server.os.path.exists', return_value=True), \
+             patch('local_code_index.server.os.path.abspath', return_value="/repo"), \
+             patch('local_code_index.server.os.path.normpath', side_effect=os.path.normpath), \
+             patch('local_code_index.server.os.path.getsize', return_value=100), \
+             patch('local_code_index.server.os.walk', return_value=iter([("/repo", [], ["module.py"])])):
             mock_chunks.return_value = [
                 {
                     "text": "File: /repo/module.py\nType: function_definition\nLines 1-2\n\ndef f():\n    pass",
@@ -382,7 +382,7 @@ class TestIndexRepository(_ServerDBFixture):
             server.db.table_names.return_value = []
             server.db.create_table.return_value = mock_table
 
-            with patch('server.update_manifest') as mock_manifest:
+            with patch('local_code_index.server.update_manifest') as mock_manifest:
                 result = index_repository("/repo")
 
         self.assertIn("Success: Codebase 'repo' indexed completely (1 node", result)
@@ -399,15 +399,15 @@ class TestIndexRepository(_ServerDBFixture):
         self.assertEqual(mock_manifest.call_args.args[0], "/repo")
         self.assertEqual(mock_manifest.call_args.args[2], 1)
 
-    @patch('server.get_structural_chunks')
-    @patch('server.get_embedding')
+    @patch('local_code_index.server.get_structural_chunks')
+    @patch('local_code_index.server.get_embedding')
     @patch('builtins.open', new_callable=mock_open, read_data="def f():\n    pass")
     def test_large_table_creates_ivf_pq_index(self, mock_file, mock_embed, mock_chunks):
-        with patch('server.os.path.exists', return_value=True), \
-             patch('server.os.path.abspath', return_value="/repo"), \
-             patch('server.os.path.normpath', side_effect=os.path.normpath), \
-             patch('server.os.path.getsize', return_value=100), \
-             patch('server.os.walk', return_value=iter([("/repo", [], ["module.py"])])):
+        with patch('local_code_index.server.os.path.exists', return_value=True), \
+             patch('local_code_index.server.os.path.abspath', return_value="/repo"), \
+             patch('local_code_index.server.os.path.normpath', side_effect=os.path.normpath), \
+             patch('local_code_index.server.os.path.getsize', return_value=100), \
+             patch('local_code_index.server.os.walk', return_value=iter([("/repo", [], ["module.py"])])):
             mock_chunks.return_value = [
                 {
                     "text": "x",
@@ -424,7 +424,7 @@ class TestIndexRepository(_ServerDBFixture):
             server.db.table_names.return_value = []
             server.db.create_table.return_value = mock_table
 
-            with patch('server.update_manifest'):
+            with patch('local_code_index.server.update_manifest'):
                 result = index_repository("/repo")
 
         self.assertIn("with structural IVF-PQ acceleration", result)
@@ -432,32 +432,32 @@ class TestIndexRepository(_ServerDBFixture):
             metric="cosine", num_partitions=16, num_sub_vectors=96
         )
 
-    @patch('server.get_structural_chunks')
-    @patch('server.get_embedding')
+    @patch('local_code_index.server.get_structural_chunks')
+    @patch('local_code_index.server.get_embedding')
     def test_file_exceeds_two_megabytes_is_skipped(self, mock_embed, mock_chunks):
-        with patch('server.os.path.exists', return_value=True), \
-             patch('server.os.path.abspath', return_value="/repo"), \
-             patch('server.os.path.normpath', side_effect=os.path.normpath), \
-             patch('server.os.path.getsize', return_value=3 * 1024 * 1024), \
-             patch('server.os.walk', return_value=iter([("/repo", [], ["huge.py"])])):
-            with patch('server.update_manifest'):
+        with patch('local_code_index.server.os.path.exists', return_value=True), \
+             patch('local_code_index.server.os.path.abspath', return_value="/repo"), \
+             patch('local_code_index.server.os.path.normpath', side_effect=os.path.normpath), \
+             patch('local_code_index.server.os.path.getsize', return_value=3 * 1024 * 1024), \
+             patch('local_code_index.server.os.walk', return_value=iter([("/repo", [], ["huge.py"])])):
+            with patch('local_code_index.server.update_manifest'):
                 result = index_repository("/repo")
         self.assertEqual(result, "No processable source files found.")
         mock_chunks.assert_not_called()
         mock_embed.assert_not_called()
 
-    @patch('server.get_structural_chunks')
-    @patch('server.fallback_line_chunker')
-    @patch('server.get_embedding')
+    @patch('local_code_index.server.get_structural_chunks')
+    @patch('local_code_index.server.fallback_line_chunker')
+    @patch('local_code_index.server.get_embedding')
     @patch('builtins.open', new_callable=mock_open, read_data="# comment\ndef f():\n    pass")
     def test_fallback_chunker_used_when_ast_empty(
         self, mock_file, mock_embed, mock_fallback, mock_chunks
     ):
-        with patch('server.os.path.exists', return_value=True), \
-             patch('server.os.path.abspath', return_value="/repo"), \
-             patch('server.os.path.normpath', side_effect=os.path.normpath), \
-             patch('server.os.path.getsize', return_value=100), \
-             patch('server.os.walk', return_value=iter([("/repo", [], ["weird.py"])])):
+        with patch('local_code_index.server.os.path.exists', return_value=True), \
+             patch('local_code_index.server.os.path.abspath', return_value="/repo"), \
+             patch('local_code_index.server.os.path.normpath', side_effect=os.path.normpath), \
+             patch('local_code_index.server.os.path.getsize', return_value=100), \
+             patch('local_code_index.server.os.walk', return_value=iter([("/repo", [], ["weird.py"])])):
             mock_chunks.return_value = []  # AST yields nothing
             mock_fallback.return_value = [
                 {
@@ -475,7 +475,7 @@ class TestIndexRepository(_ServerDBFixture):
             server.db.table_names.return_value = []
             server.db.create_table.return_value = mock_table
 
-            with patch('server.update_manifest'):
+            with patch('local_code_index.server.update_manifest'):
                 result = index_repository("/repo")
 
         self.assertIn("Success", result)
@@ -485,14 +485,14 @@ class TestIndexRepository(_ServerDBFixture):
         self.assertEqual(mock_fallback.call_args.args[0], os.path.normpath("/repo/weird.py"))
         self.assertEqual(mock_fallback.call_args.kwargs["max_lines"], 80)
 
-    @patch('server.get_structural_chunks')
+    @patch('local_code_index.server.get_structural_chunks')
     @patch('builtins.open', new_callable=mock_open, read_data="def f():\n    pass")
     def test_file_read_exception_is_swallowed_per_file(self, mock_file, mock_chunks):
-        with patch('server.os.path.exists', return_value=True), \
-             patch('server.os.path.abspath', return_value="/repo"), \
-             patch('server.os.path.normpath', side_effect=os.path.normpath), \
-             patch('server.os.path.getsize', return_value=100), \
-             patch('server.os.walk', return_value=iter([("/repo", [], ["bad.py", "good.py"])])):
+        with patch('local_code_index.server.os.path.exists', return_value=True), \
+             patch('local_code_index.server.os.path.abspath', return_value="/repo"), \
+             patch('local_code_index.server.os.path.normpath', side_effect=os.path.normpath), \
+             patch('local_code_index.server.os.path.getsize', return_value=100), \
+             patch('local_code_index.server.os.walk', return_value=iter([("/repo", [], ["bad.py", "good.py"])])):
             good_chunk = [{
                 "text": "good", "file_path": os.path.normpath("/repo/good.py"),
                 "start_line": 1, "type": "function_definition",
@@ -516,22 +516,22 @@ class TestIndexRepository(_ServerDBFixture):
             server.db.create_table.return_value = mock_table
 
             with patch('builtins.open', side_effect=side_effect):
-                with patch('server.update_manifest'):
+                with patch('local_code_index.server.update_manifest'):
                     result = index_repository("/repo")
 
         self.assertIn("Success: Codebase 'repo' indexed completely (1 node", result)
 
-    @patch('server.get_structural_chunks')
-    @patch('server.get_embedding')
+    @patch('local_code_index.server.get_structural_chunks')
+    @patch('local_code_index.server.get_embedding')
     @patch('builtins.open', new_callable=mock_open, read_data="def f():\n    pass")
     def test_existing_table_dropped_before_create(
         self, mock_file, mock_embed, mock_chunks
     ):
-        with patch('server.os.path.exists', return_value=True), \
-             patch('server.os.path.abspath', return_value="/repo"), \
-             patch('server.os.path.normpath', side_effect=os.path.normpath), \
-             patch('server.os.path.getsize', return_value=100), \
-             patch('server.os.walk', return_value=iter([("/repo", [], ["m.py"])])):
+        with patch('local_code_index.server.os.path.exists', return_value=True), \
+             patch('local_code_index.server.os.path.abspath', return_value="/repo"), \
+             patch('local_code_index.server.os.path.normpath', side_effect=os.path.normpath), \
+             patch('local_code_index.server.os.path.getsize', return_value=100), \
+             patch('local_code_index.server.os.walk', return_value=iter([("/repo", [], ["m.py"])])):
             mock_chunks.return_value = [
                 {"text": "x", "file_path": os.path.normpath("/repo/m.py"),
                  "start_line": 1, "type": "function_definition"}
@@ -546,14 +546,14 @@ class TestIndexRepository(_ServerDBFixture):
             server.db.table_names.return_value = [expected_table]
             server.db.create_table.return_value = mock_table
 
-            with patch('server.update_manifest'):
+            with patch('local_code_index.server.update_manifest'):
                 index_repository("/repo")
 
         server.db.drop_table.assert_called_once_with(expected_table)
         server.db.create_table.assert_called_once()
 
-    @patch('server.get_structural_chunks')
-    @patch('server.get_embedding')
+    @patch('local_code_index.server.get_structural_chunks')
+    @patch('local_code_index.server.get_embedding')
     @patch('builtins.open', new_callable=mock_open, read_data="x")
     def test_ignored_files_are_skipped_before_extension_check(
         self, mock_file, mock_embed, mock_chunks
@@ -562,11 +562,11 @@ class TestIndexRepository(_ServerDBFixture):
         the supported-extension check, exercising the ``continue`` branch."""
         from unittest.mock import MagicMock as _MM
         getsize_mock = _MM(return_value=100)
-        with patch('server.os.path.exists', return_value=True), \
-             patch('server.os.path.abspath', return_value="/repo"), \
-             patch('server.os.path.normpath', side_effect=os.path.normpath), \
-             patch('server.os.path.getsize', new=getsize_mock), \
-             patch('server.os.walk', return_value=iter([
+        with patch('local_code_index.server.os.path.exists', return_value=True), \
+             patch('local_code_index.server.os.path.abspath', return_value="/repo"), \
+             patch('local_code_index.server.os.path.normpath', side_effect=os.path.normpath), \
+             patch('local_code_index.server.os.path.getsize', new=getsize_mock), \
+             patch('local_code_index.server.os.walk', return_value=iter([
                  ("/repo", [], ["package-lock.json", ".env", "tsconfig.json", "code.py"]),
              ])):
             mock_chunks.return_value = [
@@ -581,7 +581,7 @@ class TestIndexRepository(_ServerDBFixture):
             server.db.table_names.return_value = []
             server.db.create_table.return_value = mock_table
 
-            with patch('server.update_manifest'):
+            with patch('local_code_index.server.update_manifest'):
                 result = index_repository("/repo")
 
         # Only ``code.py`` was processed -> getsize call_count must be 1, not 4.
@@ -595,7 +595,7 @@ class TestIndexRepository(_ServerDBFixture):
 class TestSearchCodebase(_ServerDBFixture):
     """search_codebase -> vector search with token-budget guardrails."""
 
-    @patch('server.get_embedding')
+    @patch('local_code_index.server.get_embedding')
     def test_repo_not_indexed_returns_error(self, mock_embed):
         mock_embed.return_value = [0.0]
         server.db = MagicMock()
@@ -604,7 +604,7 @@ class TestSearchCodebase(_ServerDBFixture):
         self.assertIn("Error: Repository at '/path/to/repo' is not indexed yet.", result)
         self.assertIn("Use index_repository first.", result)
 
-    @patch('server.get_embedding')
+    @patch('local_code_index.server.get_embedding')
     def test_repo_not_indexed_uses_absolute_path_in_message(self, mock_embed):
         mock_embed.return_value = [0.0]
         server.db = MagicMock()
@@ -613,8 +613,8 @@ class TestSearchCodebase(_ServerDBFixture):
         result = search_codebase("/repo", "q")
         self.assertIn("Error: Repository at '/repo' is not indexed yet.", result)
 
-    @patch('server.count_tokens')
-    @patch('server.get_embedding')
+    @patch('local_code_index.server.count_tokens')
+    @patch('local_code_index.server.get_embedding')
     def test_success_returns_formatted_results(self, mock_embed, mock_tokens):
         mock_embed.return_value = [0.1, 0.2]
         # count_tokens: keep returning small numbers so nothing gets truncated.
@@ -654,8 +654,8 @@ class TestSearchCodebase(_ServerDBFixture):
         # No truncation warning expected.
         self.assertNotIn("WARNING", result)
 
-    @patch('server.count_tokens')
-    @patch('server.get_embedding')
+    @patch('local_code_index.server.count_tokens')
+    @patch('local_code_index.server.get_embedding')
     def test_token_budget_truncates_results(self, mock_embed, mock_tokens):
         mock_embed.return_value = [0.1]
         # First call (header) returns 0; every block returns a large number to force break.
@@ -678,8 +678,8 @@ class TestSearchCodebase(_ServerDBFixture):
         result = search_codebase("/repo", "query", token_budget=100)
         self.assertIn("WARNING: Search results truncated to fit within the 100 token", result)
 
-    @patch('server.count_tokens')
-    @patch('server.get_embedding')
+    @patch('local_code_index.server.count_tokens')
+    @patch('local_code_index.server.get_embedding')
     def test_file_filter_adds_where_clause(self, mock_embed, mock_tokens):
         mock_embed.return_value = [0.1]
         mock_tokens.side_effect = lambda text: 1
@@ -707,8 +707,8 @@ class TestSearchCodebase(_ServerDBFixture):
         self.assertIn("file_path LIKE '%test.py%'", where_arg)
         self.assertTrue(mock_search.where.call_args.kwargs.get("prefilter", False))
 
-    @patch('server.count_tokens')
-    @patch('server.get_embedding')
+    @patch('local_code_index.server.count_tokens')
+    @patch('local_code_index.server.get_embedding')
     def test_empty_results_returns_message(self, mock_embed, mock_tokens):
         mock_embed.return_value = [0.1]
         mock_tokens.side_effect = lambda text: 1
@@ -739,7 +739,7 @@ class TestDeleteRepository(unittest.TestCase):
         server.db = self._original_db
         server.os = self._original_os
 
-    @patch('server.os')
+    @patch('local_code_index.server.os')
     def test_delete_by_existing_path_drops_table_and_manifest(self, mock_os):
         mock_os.path.abspath.return_value = "/repo"
         # Force the path-existence branch: "/" or "\" present OR os.path.exists True.
@@ -752,7 +752,7 @@ class TestDeleteRepository(unittest.TestCase):
         # Critical: get_clean_table_name uses the *real* os.path.basename/normpath; but
         # we patched server.os as a whole, so basename would return a Mock. Patch the
         # function directly to return the expected table name.
-        with patch('server.get_clean_table_name', return_value=table_name):
+        with patch('local_code_index.server.get_clean_table_name', return_value=table_name):
             mock_manifest = MagicMock()
             server.db.open_table.return_value = mock_manifest
 
@@ -776,7 +776,7 @@ class TestDeleteRepository(unittest.TestCase):
         mock_manifest.delete.assert_called_once_with(f"table_name = '{table_name}'")
         self.assertIn("Successfully pruned and deleted vector data for:", result)
 
-    @patch('server.os')
+    @patch('local_code_index.server.os')
     def test_delete_when_table_missing_but_manifest_present(self, mock_os):
         mock_os.path.abspath.return_value = "/repo"
         mock_os.path.exists.return_value = True
@@ -788,7 +788,7 @@ class TestDeleteRepository(unittest.TestCase):
         mock_manifest = MagicMock()
         server.db.open_table.return_value = mock_manifest
 
-        with patch('server.get_clean_table_name', return_value=table_name):
+        with patch('local_code_index.server.get_clean_table_name', return_value=table_name):
             result = delete_repository("/repo")
 
         server.db.drop_table.assert_not_called()
@@ -796,7 +796,7 @@ class TestDeleteRepository(unittest.TestCase):
         mock_manifest.delete.assert_called_once_with(f"table_name = '{table_name}'")
         self.assertIn("Successfully pruned and deleted vector data for:", result)
 
-    @patch('server.os')
+    @patch('local_code_index.server.os')
     def test_delete_not_found_message(self, mock_os):
         mock_os.path.abspath.return_value = "/nonexistent"
         mock_os.path.exists.return_value = True
@@ -808,7 +808,7 @@ class TestDeleteRepository(unittest.TestCase):
         mock_manifest = MagicMock()
         server.db.open_table.return_value = mock_manifest
 
-        with patch('server.get_clean_table_name', return_value=table_name):
+        with patch('local_code_index.server.get_clean_table_name', return_value=table_name):
             result = delete_repository("/nonexistent")
 
         server.db.drop_table.assert_not_called()
@@ -833,7 +833,7 @@ class TestDeleteRepository(unittest.TestCase):
             result,
         )
 
-    @patch('server.os')
+    @patch('local_code_index.server.os')
     def test_manifest_delete_exception_swallowed(self, mock_os):
         mock_os.path.abspath.return_value = "/repo"
         mock_os.path.exists.return_value = True
@@ -846,7 +846,7 @@ class TestDeleteRepository(unittest.TestCase):
         mock_manifest.delete.side_effect = RuntimeError("disk full")
         server.db.open_table.return_value = mock_manifest
 
-        with patch('server.get_clean_table_name', return_value=table_name):
+        with patch('local_code_index.server.get_clean_table_name', return_value=table_name):
             result = delete_repository("/repo")
 
         # Table drop still happened, manifest failure is swallowed, success returned.
@@ -877,9 +877,9 @@ class TestDeleteRepository(unittest.TestCase):
         mock_manifest = MagicMock()
         server.db.open_table.return_value = mock_manifest
 
-        with patch('server.os.path.exists', return_value=False), \
-             patch('server.get_clean_table_name', return_value=table_name), \
-             patch('server.os.path.abspath', return_value="/abs/strange"):
+        with patch('local_code_index.server.os.path.exists', return_value=False), \
+             patch('local_code_index.server.get_clean_table_name', return_value=table_name), \
+             patch('local_code_index.server.os.path.abspath', return_value="/abs/strange"):
             # Force the table-name string to be treated as a path: ensure it has a slash
             # so the resolver's path branch is taken (table_name lacks 'repo_' prefix).
             result = delete_repository("/abs/strange")
@@ -910,8 +910,8 @@ class TestSearchAllCodebases(_ServerDBFixture):
             "No repositories have been indexed globally yet.",
         )
 
-    @patch('server.get_embedding')
-    @patch('server.count_tokens')
+    @patch('local_code_index.server.get_embedding')
+    @patch('local_code_index.server.count_tokens')
     def test_single_repo_success(self, mock_tokens, mock_embed):
         mock_embed.return_value = [0.1, 0.2]
         mock_tokens.side_effect = lambda text: 1
@@ -942,8 +942,8 @@ class TestSearchAllCodebases(_ServerDBFixture):
         self.assertIn("[1]", result)
         self.assertIn("def a(): pass", result)
 
-    @patch('server.get_embedding')
-    @patch('server.count_tokens')
+    @patch('local_code_index.server.get_embedding')
+    @patch('local_code_index.server.count_tokens')
     def test_multi_repo_results_ordered_by_distance(self, mock_tokens, mock_embed):
         mock_embed.return_value = [0.1]
         mock_tokens.side_effect = lambda text: 1
@@ -982,8 +982,8 @@ class TestSearchAllCodebases(_ServerDBFixture):
         self.assertLess(idx_beta, idx_alpha)
         self.assertIn("[1] [Repo: beta]", result)
 
-    @patch('server.get_embedding')
-    @patch('server.count_tokens')
+    @patch('local_code_index.server.get_embedding')
+    @patch('local_code_index.server.count_tokens')
     def test_one_repo_error_does_not_break_others(self, mock_tokens, mock_embed):
         mock_embed.return_value = [0.1]
         mock_tokens.side_effect = lambda text: 1
@@ -1013,8 +1013,8 @@ class TestSearchAllCodebases(_ServerDBFixture):
         self.assertIn("[Repo: yan]", result)
         self.assertIn("y", result)
 
-    @patch('server.get_embedding')
-    @patch('server.count_tokens')
+    @patch('local_code_index.server.get_embedding')
+    @patch('local_code_index.server.count_tokens')
     def test_token_budget_truncates_results(self, mock_tokens, mock_embed):
         mock_embed.return_value = [0.1]
         # Header counts as 0 tokens; each block counts as huge -> truncate after first.
@@ -1039,8 +1039,8 @@ class TestSearchAllCodebases(_ServerDBFixture):
             result,
         )
 
-    @patch('server.get_embedding')
-    @patch('server.count_tokens')
+    @patch('local_code_index.server.get_embedding')
+    @patch('local_code_index.server.count_tokens')
     def test_all_repos_return_empty_hits(self, mock_tokens, mock_embed):
         mock_embed.return_value = [0.1]
         mock_tokens.side_effect = lambda text: 1

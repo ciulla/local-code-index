@@ -54,8 +54,11 @@ Ensure your local project directory matches this setup:
 ```text
 local-code-index/
 ├── pyproject.toml     # Pin-point environment and tool configurations
-├── parser_utils.py    # Official Tree-sitter AST parsing layer
-├── server.py          # FastMCP server tool and LanceDB engine
+├── src/
+│   └── local_code_index/
+│       ├── __init__.py
+│       ├── parser_utils.py    # Official Tree-sitter AST parsing layer
+│       └── server.py          # FastMCP server tool and LanceDB engine
 └── README.md          # Project documentation
 ```
 
@@ -88,7 +91,7 @@ To connect this local tool to your AI chat interface, register it inside your fa
 
 - **Name**: `local-multi-repo-indexer`
 - **Type**: `command`
-- **Command**: `uv --directory "/absolute/path/to/local-code-index" run server.py`
+- **Command**: `uv --directory "/absolute/path/to/local-code-index" run python -m local_code_index.server`
 
 #### For Cline (`cline_mcp_settings.json`)
 
@@ -103,7 +106,9 @@ Add this configuration snippet inside your `mcpServers` settings payload:
         "--directory",
         "/absolute/path/to/local-code-index",
         "run",
-        "server.py"
+        "python",
+        "-m",
+        "local_code_index.server"
       ],
       "disabled": false
     }
@@ -123,7 +128,7 @@ idx() {
     TARGET_DIR="\${1:-.}"
     ABS_PATH=(cd "TARGET_DIR" && pwd)
     echo "⚡ Indexing codebase to local vector DB: \$ABS_PATH"
-    uv --directory "/absolute/path/to/local-code-index" run python -c "import server; print(server.index_repository('\$ABS_PATH'))"
+    uv --directory "/absolute/path/to/local-code-index" run python -c "from local_code_index import server; print(server.index_repository('\$ABS_PATH'))"
 }
 
 # Remove an old or deleted repository from the vector index
@@ -131,12 +136,12 @@ idx-rm() {
     TARGET_DIR="\${1:-.}"
     ABS_PATH=(cd "TARGET_DIR" && pwd)
     echo "🗑️ Removing vector entries for: \$ABS_PATH"
-    uv --directory "/absolute/path/to/local-code-index" run python -c "import server; print(server.delete_repository('\$ABS_PATH'))"
+    uv --directory "/absolute/path/to/local-code-index" run python -c "from local_code_index import server; print(server.delete_repository('\$ABS_PATH'))"
 }
 
 # Query across all repositories globally
 idx-find() {
-    uv --directory "/absolute/path/to/local-code-index" run python -c "import server; print(server.search_all_codebases('\$1'))"
+    uv --directory "/absolute/path/to/local-code-index" run python -c "from local_code_index import server; print(server.search_all_codebases('\$1'))"
 }
 ```
 

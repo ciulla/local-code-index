@@ -6,7 +6,7 @@ import lancedb
 import ollama
 import tiktoken
 
-from parser_utils import get_structural_chunks, fallback_line_chunker
+from .parser_utils import get_structural_chunks, fallback_line_chunker
 
 mcp = FastMCP("scalable-code-vector")
 
